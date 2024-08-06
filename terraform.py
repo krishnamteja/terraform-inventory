@@ -372,22 +372,29 @@ class AnsibleGroup(object):
 def _execute_shell():
     encoding = 'utf-8'
     tf_workspace = [TERRAFORM_PATH, 'workspace', 'select', TERRAFORM_WS_NAME]
-    proc_ws = Popen(tf_workspace, cwd=TERRAFORM_DIR, stdout=PIPE,
-                    stderr=PIPE, universal_newlines=True)
+    proc_ws = Popen(tf_workspace, cwd=TERRAFORM_DIR, stdout=PIPE, stderr=PIPE, universal_newlines=True)
     _, err_ws = proc_ws.communicate()
-    if err_ws != '':
-        sys.stderr.write(str(err_ws)+'\n')
+    if "doesn't exist" in err_ws:
+        # Create the workspace if it does not exist
+        tf_workspace_create = [TERRAFORM_PATH, 'workspace', 'new', TERRAFORM_WS_NAME]
+        proc_ws_create = Popen(tf_workspace_create, cwd=TERRAFORM_DIR, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        _, err_ws_create = proc_ws_create.communicate()
+        if err_ws_create:
+            sys.stderr.write(str(err_ws_create) + '\n')
+            sys.exit(1)
+    elif err_ws:
+        sys.stderr.write(str(err_ws) + '\n')
+        sys.exit(1)
+    
+    tf_command = [TERRAFORM_PATH, 'state', 'pull']
+    proc_tf_cmd = Popen(tf_command, cwd=TERRAFORM_DIR, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+    out_cmd, err_cmd = proc_tf_cmd.communicate()
+    if err_cmd:
+        sys.stderr.write(str(err_cmd) + '\n')
         sys.exit(1)
     else:
-        tf_command = [TERRAFORM_PATH, 'state', 'pull']
-        proc_tf_cmd = Popen(tf_command, cwd=TERRAFORM_DIR,
-                            stdout=PIPE, stderr=PIPE, universal_newlines=True)
-        out_cmd, err_cmd = proc_tf_cmd.communicate()
-        if err_cmd != '':
-            sys.stderr.write(str(err_cmd)+'\n')
-            sys.exit(1)
-        else:
-            return json.loads(out_cmd, encoding=encoding)
+        return json.loads(out_cmd, encoding=encoding)
+
 
 
 def _main():
